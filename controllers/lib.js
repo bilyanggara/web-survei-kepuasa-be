@@ -364,6 +364,40 @@ module.exports = {
         return finalRes
     },
 
+    generateQueryToCheckDuplicateEntry(role, idSurvey, id) {
+        let query = ""
+        switch (role) {
+            case 'dosen':
+                query = `select id_hasil_survei_dosen FROM hasil_survei_dosen WHERE id_survei_dosen = '${idSurvey}' AND id_dosen = '${id}'`
+                return query;
+            case 'mahasiswa':
+                query = `select id_hasil_survei_mahasiswa FROM hasil_survei_mahasiswa WHERE id_survei_mahasiswa = '${idSurvey}' AND id_mahasiswa = '${id}'`
+                return query;
+            case 'alumni':
+                query = `select id_hasil_survei_alumni FROM hasil_survei_alumni WHERE id_survei_alumni = '${idSurvey}' AND id_mahasiswa = '${id}'`
+                return query;
+            default:
+                break;
+        }
+    },
+
+    generateQueryToCheckExpired(role, idSurvey) {
+        let query = ""
+        switch (role) {
+            case 'dosen':
+                query = `select end_date FROM survei_dosen WHERE id_survei_dosen = '${idSurvey}'`
+                return query;
+            case 'mahasiswa':
+                query = `select end_date FROM survei_mahasiswa WHERE id_survei_mahasiswa = '${idSurvey}'`
+                return query;
+            case 'alumni':
+                query = `select end_date FROM survei_alumni WHERE id_survei_alumni = '${idSurvey}'`
+                return query;
+            default:
+                break;
+        }
+    },
+
     generateInsertQueryForSurveyAnswer(role, nim, idSurvei, jawaban, submissionDate) {
         let query = ""
         switch (role) {

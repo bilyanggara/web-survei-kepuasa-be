@@ -1515,18 +1515,46 @@ module.exports = {
     fillSurvey(req, res) {
         const role = req.params.role
         let { nim, nip, idSurvei, jawaban, submissionDate } = req.body
-        let query = ""
+        let insertQuery = ""
+        let checkDuplicateQuery = ""
+        let expiredSurveyQuery = ""
+
         switch (role.toLowerCase()) {
             case 'dosen':
-                query = lib.generateInsertQueryForSurveyAnswer(role.toLowerCase(), nip, idSurvei, jawaban, submissionDate)
+                insertQuery = lib.generateInsertQueryForSurveyAnswer(role.toLowerCase(), nip, idSurvei, jawaban, submissionDate)
                 break;
             case 'alumni':
-                query = lib.generateInsertQueryForSurveyAnswer(role.toLowerCase(), nim, idSurvei, jawaban, submissionDate)
+                insertQuery = lib.generateInsertQueryForSurveyAnswer(role.toLowerCase(), nim, idSurvei, jawaban, submissionDate)
                 break;
             case 'mahasiswa':
-                query = lib.generateInsertQueryForSurveyAnswer(role.toLowerCase(), nim, idSurvei, jawaban, submissionDate)
+                insertQuery = lib.generateInsertQueryForSurveyAnswer(role.toLowerCase(), nim, idSurvei, jawaban, submissionDate)
                 break;
+        }
 
+        // query for duplicate entry
+        switch (role.toLowerCase()) {
+            case 'dosen':
+                checkDuplicateQuery = lib.generateQueryToCheckDuplicateEntry(role.toLowerCase(), idSurvei, nip,)
+                break;
+            case 'alumni':
+                checkDuplicateQuery = lib.generateQueryToCheckDuplicateEntry(role.toLowerCase(), idSurvei, nim,)
+                break;
+            case 'mahasiswa':
+                checkDuplicateQuery = lib.generateQueryToCheckDuplicateEntry(role.toLowerCase(), idSurvei, nim,)
+                break;
+        }
+
+        // query for expired 
+        switch (role.toLowerCase()) {
+            case 'dosen':
+                expiredSurveyQuery = lib.generateQueryToCheckExpired(role.toLowerCase(), idSurvei)
+                break;
+            case 'alumni':
+                expiredSurveyQuery = lib.generateQueryToCheckExpired(role.toLowerCase(), idSurvei)
+                break;
+            case 'mahasiswa':
+                expiredSurveyQuery = lib.generateQueryToCheckExpired(role.toLowerCase(), idSurvei)
+                break;
         }
 
         pool.getConnection(function (err, connection) {
@@ -1537,7 +1565,8 @@ module.exports = {
                 })
             };
 
-            connection.query(query, function (err, result) {
+            // check expired first
+            connection.query(expiredSurveyQuery, function (err, result) {
                 if (err) {
                     return res.status(500).json({
                         success: false,
@@ -1552,12 +1581,44 @@ module.exports = {
                     })
                 }
 
-                return res.send({
-                    success: true,
-                    message: 'Your record has been saved successfully',
+                if (lib.getCurrentUnixTimeStamp() > result[0]["end_date"]) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "expired survey"
+                    })
+                }
+
+                // check duplicate
+                connection.query(checkDuplicateQuery, function (err, result) {
+                    if (err) {
+                        return res.status(500).json({
+                            success: false,
+                            message: err
+                        })
+                    };
+
+                    if (result.length !== 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'record already exists'
+                        })
+                    }
+
+                    connection.query(insertQuery, function (err, result) {
+                        if (err) {
+                            return res.status(500).json({
+                                success: false,
+                                message: err
+                            })
+                        };
+
+                        return res.send({
+                            success: true,
+                            message: 'Your record has been saved successfully',
+                        })
+                    })
                 })
             })
-
             connection.release();
         })
     },
