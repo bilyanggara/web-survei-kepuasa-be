@@ -308,6 +308,21 @@ module.exports = {
         }
     },
 
+    generateQueryForDuplicateQuestion(questions) {
+        var query = "SELECT DISTINCT(pertanyaan) FROM pertanyaan_survei WHERE pertanyaan IN ("
+
+        questions.forEach((element, index) => {
+            var val = (index === questions.length - 1) ? `'${element}')` : `'${element}',`
+            query += val
+        })
+
+        return query
+    },
+
+    findQuestionThatNotInDb(dbResult, input) {
+        return input.filter((value) => !dbResult.includes(value));
+    },
+
     generateBulkQueryForNewQuestion(payload) {
         let query = "INSERT INTO pertanyaan_survei (id_pertanyaan_survei, tipe, pertanyaan) VALUES "
         payload.forEach((element, index) => {

@@ -1226,6 +1226,12 @@ module.exports = {
     newSurveyQuestion(req, res) {
         let { payload } = req.body
 
+        // parsing payload only take questions
+        const questionsOnly = payload.map(v => v.pertanyaan)
+
+        // select different value from db result
+        const checkQuery = lib.generateQueryForDuplicateQuestion(questionsOnly)
+
         pool.getConnection(function (err, connection) {
             if (err) {
                 return res.status(500).json({
@@ -1234,8 +1240,7 @@ module.exports = {
                 })
             };
 
-            const query = lib.generateBulkQueryForNewQuestion(payload)
-            connection.query(query, function (err, result) {
+            connection.query(checkQuery, function (err, result) {
                 if (err) {
                     return res.status(500).json({
                         success: false,
@@ -1243,12 +1248,51 @@ module.exports = {
                     })
                 };
 
-                return res.send({
-                    success: true,
-                    message: 'Your record has been saved successfully',
-                    data: payload
+                var parsedDBRes = result.map(v => v.pertanyaan)
+                var questionAfterComparedToDb = lib.findQuestionThatNotInDb(parsedDBRes, questionsOnly)
+
+                if (questionAfterComparedToDb.length === 0) {
+                    return res.status(200).json({
+                        success: true,
+                        message: "questions already exist in db"
+                    })
+                }
+
+                // find question input type
+                let insertNewRecord = []
+                for (let i = 0; i < payload.length; i++) {
+                    for (let j = 0; j < questionAfterComparedToDb.length; j++) {
+                        if (payload[i]["pertanyaan"] === questionAfterComparedToDb[j]) {
+                            insertNewRecord.push(
+                                {
+                                    "tipe": payload[i]["tipe"],
+                                    "pertanyaan": questionAfterComparedToDb[j]
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // insert
+                const query = lib.generateBulkQueryForNewQuestion(insertNewRecord)
+
+                connection.query(query, function (err, result) {
+                    if (err) {
+                        return res.status(500).json({
+                            success: false,
+                            message: err
+                        })
+                    };
+
+                    return res.send({
+                        success: true,
+                        message: 'Your record has been saved successfully',
+                        data: insertNewRecord
+                    })
                 })
+
             })
+
 
             connection.release();
         })
